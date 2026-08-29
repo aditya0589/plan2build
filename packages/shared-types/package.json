@@ -1,0 +1,16 @@
+{
+  "name": "@plan2build/shared-types",
+  "version": "1.0.0",
+  "description": "Canonical types and schemas for Plan2Build AI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": ["bim", "floorplan", "cad", "architecture", "geometry"],
+  "author": "Plan2Build AI",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
