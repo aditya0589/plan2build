@@ -2,6 +2,8 @@
 
 **Plan2Build AI** is an advanced architectural AI and computational geometry web application that converts 2D floor-plan raster images/PDFs into verified, canonical semantic building representations and reconstructs them into editable, production-grade 3D buildings in an interactive WebGL CAD environment.
 
+👉 **[Master Phases & Roadmap Checklist](docs/roadmap_checklist.md)** — Track project progress and resumption instructions across all 47 engineering phases.
+
 ---
 
 ## 🏛️ System Architecture Overview
