@@ -13,37 +13,51 @@
 
 ---
 
-## 📸 Application Screenshots (Actual Running Studio)
+## 📸 Application Showcase (Live Running Studio)
 
-### 1. Interactive 2D Vector CAD Canvas
-Live 2D CAD viewport featuring vector wall centerlines with thickness, automatic room polygon segmentation with live area calculations ($m^2$), parametric door swing arcs, window openings, column joints, and real-time Building Overview metrics.
+### 1. Interactive 3D WebGL Building Viewport
+Parametric 3D building reconstruction featuring extruded walls with clean door/window boolean cutouts, wood floor slabs, open door leaves, framed glass windows, and real-time directional sunlight with soft cast shadows.
+
+![Plan2Build AI 3D Studio](docs/assets/studio_3d_actual.png)
+
+---
+
+### 2. Dual 2D CAD & 3D Split Viewport
+Live synchronized dual-view editing allowing simultaneous 2D architectural blueprint adjustments and real-time 3D WebGL model inspection.
+
+![Dual Split Viewport](docs/assets/split_view_actual.png)
+
+---
+
+### 3. Interactive 2D Vector CAD Canvas
+Precision 2D CAD viewport featuring vector wall centerlines with thickness, automatic room polygon segmentation with live area calculations ($m^2$), door swing arcs, window openings, column joints, and real-time Building Overview metrics.
 
 ![Plan2Build AI 2D CAD Viewport](docs/assets/cad_2d_actual.png)
 
 ---
 
-### 2. Multi-Format Floor Plan Ingestion & Dropzone
+### 4. Multi-Format Floor Plan Ingestion & Dropzone
 Accepts architectural raster images (PNG, JPG, JPEG) and multi-page architectural PDFs up to 50MB with instant preview, resolution normalization, and one-click sample benchmark fixtures.
 
 ![Upload Floor Plan Modal](docs/assets/upload_modal_actual.png)
 
 ---
 
-### 3. Project Manager & Database Persistence
+### 5. Project Manager & Database Persistence
 Full project lifecycle management backed by Async SQLAlchemy (SQLite/PostgreSQL) with real-time status tracking (`CREATED` ➔ `UPLOADED` ➔ `PREPROCESSING` ➔ `DETECTING` ➔ `SEGMENTING` ➔ `RECONSTRUCTING` ➔ `GENERATING_3D` ➔ `READY`).
 
 ![Project Manager Drawer](docs/assets/projects_manager_actual.png)
 
 ---
 
-### 4. AI Architect Assistant
+### 6. AI Architect Assistant
 Structured natural language conversational assistant for architectural layout modifications, spatial ratio evaluations, and design guideline compliance.
 
 ![AI Architect Assistant](docs/assets/ai_architect_actual.png)
 
 ---
 
-### 5. Backend REST API & OpenAPI Documentation
+### 7. Backend REST API & OpenAPI Documentation
 Async FastAPI backend providing high-throughput endpoints for project CRUD, multipart uploads, geometry serialization, and background perception tasks.
 
 ![FastAPI Swagger Documentation](docs/assets/fastapi_docs_actual.png)

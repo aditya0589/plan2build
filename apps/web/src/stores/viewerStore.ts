@@ -44,7 +44,7 @@ interface ViewerState {
 }
 
 export const useViewerStore = create<ViewerState>((set) => ({
-  viewMode: '2D',
+  viewMode: '3D',
   lightingPreset: 'day',
   layers: {
     walls: true,
