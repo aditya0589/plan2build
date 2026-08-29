@@ -23,6 +23,8 @@ interface FloorPlanState {
   activeTool: CadTool;
   selection: Selection;
   hoveredElement: { type: string; id: string } | null;
+  underlayImageUrl: string | null;
+  underlayOpacity: number;
 
   // History for undo/redo
   history: SemanticFloorPlan[];
@@ -31,6 +33,8 @@ interface FloorPlanState {
   // Actions
   setPlan: (plan: SemanticFloorPlan) => void;
   loadSamplePlan: (sampleKey: 'studio' | '2bed') => void;
+  setUnderlayImage: (url: string | null) => void;
+  setUnderlayOpacity: (opacity: number) => void;
   setActiveTool: (tool: CadTool) => void;
   setActiveLevelId: (levelId: string) => void;
   setSelection: (selection: Selection) => void;
@@ -71,6 +75,8 @@ export const useFloorPlanStore = create<FloorPlanState>((set, get) => ({
   activeTool: 'select',
   selection: { type: 'none', id: null },
   hoveredElement: null,
+  underlayImageUrl: null,
+  underlayOpacity: 0.6,
   history: [SAMPLE_STUDIO_PLAN],
   historyIndex: 0,
 
@@ -88,11 +94,14 @@ export const useFloorPlanStore = create<FloorPlanState>((set, get) => ({
       plan,
       activeLevelId: plan.levels[0]?.id || 'level_0',
       selection: { type: 'none', id: null },
+      underlayImageUrl: null,
       history: [plan],
       historyIndex: 0,
     });
   },
 
+  setUnderlayImage: (url) => set({ underlayImageUrl: url }),
+  setUnderlayOpacity: (opacity) => set({ underlayOpacity: opacity }),
   setActiveTool: (tool) => set({ activeTool: tool }),
   setActiveLevelId: (levelId) => set({ activeLevelId: levelId }),
   setSelection: (selection) => set({ selection }),

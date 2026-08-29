@@ -1,6 +1,7 @@
 import React from 'react';
-import { Eye, EyeOff, Layers, X } from 'lucide-react';
+import { Eye, EyeOff, Layers, X, Sliders } from 'lucide-react';
 import { useViewerStore, LayerVisibility } from '../../stores/viewerStore';
+import { useFloorPlanStore } from '../../stores/floorplanStore';
 
 const LAYER_LABELS: { key: keyof LayerVisibility; label: string }[] = [
   { key: 'walls', label: 'Walls & Partitions' },
@@ -19,6 +20,7 @@ const LAYER_LABELS: { key: keyof LayerVisibility; label: string }[] = [
 
 export const LayerManager: React.FC = () => {
   const { layers, toggleLayer, showLayerManager, setShowLayerManager } = useViewerStore();
+  const { underlayImageUrl, underlayOpacity, setUnderlayOpacity } = useFloorPlanStore();
 
   if (!showLayerManager) return null;
 
@@ -36,6 +38,27 @@ export const LayerManager: React.FC = () => {
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {underlayImageUrl && (
+        <div className="mb-3 pb-3 border-b border-studio-750 space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] text-slate-300">
+            <span className="flex items-center space-x-1.5">
+              <Sliders className="w-3 h-3 text-blue-400" />
+              <span>Original Plan Underlay</span>
+            </span>
+            <span className="font-mono text-slate-400">{Math.round(underlayOpacity * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={underlayOpacity}
+            onChange={(e) => setUnderlayOpacity(parseFloat(e.target.value))}
+            className="w-full h-1 bg-studio-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+          />
+        </div>
+      )}
 
       <div className="space-y-1">
         {LAYER_LABELS.map(({ key, label }) => {

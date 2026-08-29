@@ -8,6 +8,8 @@ export const FloorPlan2D: React.FC = () => {
     selection,
     setSelection,
     activeTool,
+    underlayImageUrl,
+    underlayOpacity,
   } = useFloorPlanStore();
   const { layers } = useViewerStore();
 
@@ -45,6 +47,14 @@ export const FloorPlan2D: React.FC = () => {
   const toSvgX = (mX: number) => pan.x + mX * zoom;
   const toSvgY = (mY: number) => pan.y + mY * zoom;
 
+  // Calculate plan boundary
+  let maxW = 12;
+  let maxH = 10;
+  plan.walls.forEach((w) => {
+    maxW = Math.max(maxW, w.start.x, w.end.x);
+    maxH = Math.max(maxH, w.start.y, w.end.y);
+  });
+
   return (
     <div
       className="w-full h-full relative overflow-hidden bg-studio-900 cad-grid-bg select-none cursor-crosshair"
@@ -71,6 +81,20 @@ export const FloorPlan2D: React.FC = () => {
 
         {layers.grid && (
           <rect width="100%" height="100%" fill="url(#grid-pattern)" />
+        )}
+
+        {/* 0. UNDERLAY ARCHITECTURAL DRAWING IMAGE */}
+        {underlayImageUrl && (
+          <image
+            href={underlayImageUrl}
+            x={toSvgX(0)}
+            y={toSvgY(0)}
+            width={(maxW + 1) * zoom}
+            height={(maxH + 1) * zoom}
+            opacity={underlayOpacity}
+            preserveAspectRatio="none"
+            style={{ pointerEvents: 'none' }}
+          />
         )}
 
         {/* 1. ROOMS (Polygons & Labels) */}
@@ -108,7 +132,7 @@ export const FloorPlan2D: React.FC = () => {
                   x={toSvgX(room.centroid.x)}
                   y={toSvgY(room.centroid.y) + 14}
                   textAnchor="middle"
-                  className="fill-blue-400 font-mono text-[10px] pointer-events-none"
+                  className="fill-slate-500 font-mono text-[9px] pointer-events-none"
                 >
                   {room.area.toFixed(1)} m²
                 </text>
@@ -116,7 +140,7 @@ export const FloorPlan2D: React.FC = () => {
             );
           })}
 
-        {/* 2. WALLS */}
+        {/* 2. WALL FOOTPRINTS & CENTERLINES */}
         {layers.walls &&
           plan.walls.map((wall) => {
             const isSelected = selection.type === 'wall' && selection.id === wall.id;
@@ -124,56 +148,35 @@ export const FloorPlan2D: React.FC = () => {
             const y1 = toSvgY(wall.start.y);
             const x2 = toSvgX(wall.end.x);
             const y2 = toSvgY(wall.end.y);
-            const strokeW = Math.max(wall.thickness * zoom, 4);
 
             return (
-              <g
-                key={wall.id}
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelection({ type: 'wall', id: wall.id });
-                }}
-              >
-                {/* Wall Base Stroke */}
+              <g key={wall.id} className="cursor-pointer">
+                {/* Wall thickness stroke */}
                 <line
                   x1={x1}
                   y1={y1}
                   x2={x2}
                   y2={y2}
-                  stroke={
-                    isSelected
-                      ? '#3B82F6'
-                      : wall.type === 'exterior'
-                      ? '#94A3B8'
-                      : '#64748B'
-                  }
-                  strokeWidth={strokeW}
-                  strokeLinecap="round"
+                  stroke={isSelected ? '#3B82F6' : wall.type === 'exterior' ? '#E2E8F0' : '#94A3B8'}
+                  strokeWidth={wall.thickness * zoom}
+                  strokeLinecap="square"
                   className="transition-colors hover:stroke-blue-400"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelection({ type: 'wall', id: wall.id });
+                  }}
                 />
-
-                {/* Wall Centerline Guide */}
+                {/* Centerline indicator */}
                 <line
                   x1={x1}
                   y1={y1}
                   x2={x2}
                   y2={y2}
-                  stroke={isSelected ? '#FFFFFF' : '#1E293B'}
-                  strokeWidth={1}
+                  stroke={isSelected ? '#60A5FA' : 'rgba(0, 0, 0, 0.4)'}
+                  strokeWidth="1"
+                  strokeDasharray="3 3"
+                  pointerEvents="none"
                 />
-
-                {/* Dimension label */}
-                {layers.dimensions && (
-                  <text
-                    x={(x1 + x2) / 2}
-                    y={(y1 + y2) / 2 - strokeW / 2 - 4}
-                    textAnchor="middle"
-                    className="fill-slate-400 font-mono text-[9px] pointer-events-none"
-                  >
-                    {Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y).toFixed(2)}m
-                  </text>
-                )}
               </g>
             );
           })}
@@ -185,17 +188,15 @@ export const FloorPlan2D: React.FC = () => {
             if (!hostWall) return null;
 
             const isSelected = selection.type === 'door' && selection.id === door.id;
-            const angle = Math.atan2(
-              hostWall.end.y - hostWall.start.y,
-              hostWall.end.x - hostWall.start.x
-            );
-            const dx = Math.cos(angle);
-            const dy = Math.sin(angle);
 
-            const startX = hostWall.start.x + dx * door.position;
-            const startY = hostWall.start.y + dy * door.position;
-            const endX = startX + dx * door.width;
-            const endY = startY + dy * door.width;
+            // Compute door center along host wall
+            const dx = hostWall.end.x - hostWall.start.x;
+            const dy = hostWall.end.y - hostWall.start.y;
+            const wallLen = Math.hypot(dx, dy);
+            const ratio = wallLen > 0 ? door.position / wallLen : 0.5;
+
+            const cx = hostWall.start.x + dx * ratio;
+            const cy = hostWall.start.y + dy * ratio;
 
             return (
               <g
@@ -206,25 +207,21 @@ export const FloorPlan2D: React.FC = () => {
                   setSelection({ type: 'door', id: door.id });
                 }}
               >
-                {/* Door Opening Gap Marker */}
-                <line
-                  x1={toSvgX(startX)}
-                  y1={toSvgY(startY)}
-                  x2={toSvgX(endX)}
-                  y2={toSvgY(endY)}
-                  stroke={isSelected ? '#F59E0B' : '#FBBF24'}
-                  strokeWidth={Math.max(hostWall.thickness * zoom, 4)}
+                {/* Door opening gap cutout indicator */}
+                <circle
+                  cx={toSvgX(cx)}
+                  cy={toSvgY(cy)}
+                  r={(door.width / 2) * zoom}
+                  fill="none"
+                  stroke={isSelected ? '#3B82F6' : '#F59E0B'}
+                  strokeWidth="2"
                   strokeDasharray="2 2"
                 />
-
-                {/* Door Leaf (Swing Indicator) */}
-                <line
-                  x1={toSvgX(startX)}
-                  y1={toSvgY(startY)}
-                  x2={toSvgX(startX - dy * door.width)}
-                  y2={toSvgY(startY + dx * door.width)}
-                  stroke={isSelected ? '#F59E0B' : '#F59E0B'}
-                  strokeWidth={2}
+                <circle
+                  cx={toSvgX(cx)}
+                  cy={toSvgY(cy)}
+                  r="3"
+                  fill={isSelected ? '#3B82F6' : '#F59E0B'}
                 />
               </g>
             );
@@ -237,17 +234,14 @@ export const FloorPlan2D: React.FC = () => {
             if (!hostWall) return null;
 
             const isSelected = selection.type === 'window' && selection.id === win.id;
-            const angle = Math.atan2(
-              hostWall.end.y - hostWall.start.y,
-              hostWall.end.x - hostWall.start.x
-            );
-            const dx = Math.cos(angle);
-            const dy = Math.sin(angle);
 
-            const startX = hostWall.start.x + dx * win.position;
-            const startY = hostWall.start.y + dy * win.position;
-            const endX = startX + dx * win.width;
-            const endY = startY + dy * win.width;
+            const dx = hostWall.end.x - hostWall.start.x;
+            const dy = hostWall.end.y - hostWall.start.y;
+            const wallLen = Math.hypot(dx, dy);
+            const ratio = wallLen > 0 ? win.position / wallLen : 0.5;
+
+            const cx = hostWall.start.x + dx * ratio;
+            const cy = hostWall.start.y + dy * ratio;
 
             return (
               <g
@@ -258,22 +252,15 @@ export const FloorPlan2D: React.FC = () => {
                   setSelection({ type: 'window', id: win.id });
                 }}
               >
-                {/* Window Frame Marker */}
-                <line
-                  x1={toSvgX(startX)}
-                  y1={toSvgY(startY)}
-                  x2={toSvgX(endX)}
-                  y2={toSvgY(endY)}
-                  stroke={isSelected ? '#06B6D4' : '#22D3EE'}
-                  strokeWidth={Math.max(hostWall.thickness * zoom + 2, 6)}
-                />
-                <line
-                  x1={toSvgX(startX)}
-                  y1={toSvgY(startY)}
-                  x2={toSvgX(endX)}
-                  y2={toSvgY(endY)}
-                  stroke="#FFFFFF"
-                  strokeWidth={1.5}
+                <rect
+                  x={toSvgX(cx) - ((win.width / 2) * zoom)}
+                  y={toSvgY(cy) - 4}
+                  width={win.width * zoom}
+                  height="8"
+                  fill={isSelected ? '#60A5FA' : '#38BDF8'}
+                  stroke={isSelected ? '#2563EB' : '#0284C7'}
+                  strokeWidth="1.5"
+                  rx="1"
                 />
               </g>
             );
@@ -281,49 +268,98 @@ export const FloorPlan2D: React.FC = () => {
 
         {/* 5. COLUMNS */}
         {layers.columns &&
-          plan.columns.map((col) => (
-            <rect
-              key={col.id}
-              x={toSvgX(col.position.x - col.width / 2)}
-              y={toSvgY(col.position.y - col.depth / 2)}
-              width={col.width * zoom}
-              height={col.depth * zoom}
-              fill="#94A3B8"
-              stroke="#64748B"
-              strokeWidth={1}
-            />
-          ))}
-
-        {/* 6. FURNITURE (2D Footprints) */}
-        {layers.furniture &&
-          plan.furniture.map((furn) => {
-            const isSelected = selection.type === 'furniture' && selection.id === furn.id;
+          plan.columns.map((col) => {
+            const isSelected = selection.type === 'column' && selection.id === col.id;
             return (
-              <rect
-                key={furn.id}
-                x={toSvgX(furn.position.x - furn.dimensions.width / 2)}
-                y={toSvgY(furn.position.y - furn.dimensions.depth / 2)}
-                width={furn.dimensions.width * zoom}
-                height={furn.dimensions.depth * zoom}
-                fill={isSelected ? 'rgba(99, 102, 241, 0.4)' : 'rgba(99, 102, 241, 0.2)'}
-                stroke={isSelected ? '#6366F1' : 'rgba(99, 102, 241, 0.6)'}
-                strokeWidth={1.5}
-                rx={2}
-                className="cursor-pointer hover:fill-indigo-500/30 transition"
+              <g
+                key={col.id}
+                className="cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelection({ type: 'furniture', id: furn.id });
+                  setSelection({ type: 'column', id: col.id });
                 }}
-              />
+              >
+                <rect
+                  x={toSvgX(col.position.x - col.width / 2)}
+                  y={toSvgY(col.position.y - col.depth / 2)}
+                  width={col.width * zoom}
+                  height={col.depth * zoom}
+                  fill={isSelected ? '#3B82F6' : '#64748B'}
+                  stroke={isSelected ? '#93C5FD' : '#334155'}
+                  strokeWidth="1.5"
+                />
+              </g>
+            );
+          })}
+
+        {/* 6. FURNITURE */}
+        {layers.furniture &&
+          plan.furniture.map((item) => {
+            const isSelected = selection.type === 'furniture' && selection.id === item.id;
+            const rotAngle = item.rotation ? item.rotation.z || item.rotation.y || 0 : 0;
+            return (
+              <g
+                key={item.id}
+                className="cursor-pointer"
+                transform={`rotate(${rotAngle}, ${toSvgX(item.position.x)}, ${toSvgY(
+                  item.position.y
+                )})`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelection({ type: 'furniture', id: item.id });
+                }}
+              >
+                <rect
+                  x={toSvgX(item.position.x - item.dimensions.width / 2)}
+                  y={toSvgY(item.position.y - item.dimensions.depth / 2)}
+                  width={item.dimensions.width * zoom}
+                  height={item.dimensions.depth * zoom}
+                  fill={isSelected ? 'rgba(59, 130, 246, 0.4)' : 'rgba(148, 163, 184, 0.2)'}
+                  stroke={isSelected ? '#3B82F6' : '#94A3B8'}
+                  strokeWidth="1"
+                  rx="3"
+                />
+                <text
+                  x={toSvgX(item.position.x)}
+                  y={toSvgY(item.position.y)}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  className="fill-slate-400 font-mono text-[8px] pointer-events-none"
+                >
+                  {item.category}
+                </text>
+              </g>
             );
           })}
       </svg>
 
-      {/* 2D Zoom / Pan HUD Overlay */}
-      <div className="absolute bottom-4 left-4 bg-studio-850/80 backdrop-blur border border-studio-700 px-3 py-1.5 rounded-lg text-[11px] font-mono text-slate-300 flex items-center space-x-3 select-none">
-        <span>Zoom: {(zoom / 45).toFixed(1)}x</span>
-        <span>•</span>
-        <span>Active Tool: {activeTool.toUpperCase()}</span>
+      {/* Viewport Floating Controls */}
+      <div className="absolute bottom-4 right-4 bg-studio-850/90 backdrop-blur border border-studio-700 rounded-xl p-1.5 flex items-center space-x-2 shadow-lg text-xs font-mono text-slate-300">
+        <button
+          onClick={() => setZoom((prev) => Math.max(prev * 0.85, 15))}
+          className="px-2 py-1 bg-studio-800 hover:bg-studio-750 rounded text-slate-200"
+          title="Zoom Out"
+        >
+          -
+        </button>
+        <span className="min-w-[50px] text-center">{Math.round(zoom)} px/m</span>
+        <button
+          onClick={() => setZoom((prev) => Math.min(prev * 1.15, 180))}
+          className="px-2 py-1 bg-studio-800 hover:bg-studio-750 rounded text-slate-200"
+          title="Zoom In"
+        >
+          +
+        </button>
+        <button
+          onClick={() => {
+            setZoom(45);
+            setPan({ x: 180, y: 140 });
+          }}
+          className="px-2 py-1 bg-studio-800 hover:bg-studio-750 rounded text-[11px] text-blue-400"
+          title="Reset View"
+        >
+          Reset
+        </button>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ from app.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectUpdate
 from app.core.storage import storage
 from app.core.logging import logger
+from app.services.upload_service import UploadService
 
 class ProjectService:
     @staticmethod
@@ -85,22 +86,34 @@ class ProjectService:
         if not project:
             return None
 
-        # Store file in uploads directory: data/uploads/{project_id}_{filename}
-        file_ext = Path(filename).suffix
-        safe_filename = f"{project_id}_{Path(filename).stem}{file_ext}"
-        relative_path = f"uploads/{safe_filename}"
-        saved_path = await storage.save_file(relative_path, content)
+        # Inspect and normalize (handling PNG, JPG, PDF)
+        normalized_bytes, width, height, norm_filename = UploadService.inspect_and_normalize_image(
+            content=content,
+            filename=filename,
+            mime_type=mime_type
+        )
 
+        safe_filename = f"{project_id}_{norm_filename}"
+        relative_path = f"uploads/{safe_filename}"
+        await storage.save_file(relative_path, normalized_bytes)
+
+        # Store accessible web URL
         project.original_filename = filename
-        project.original_file_path = saved_path
-        project.file_size_bytes = len(content)
-        project.mime_type = mime_type
+        project.original_file_path = f"/static/data/{relative_path}"
+        project.file_size_bytes = len(normalized_bytes)
+        project.mime_type = "image/png" if norm_filename.endswith(".png") else mime_type
         project.status = "UPLOADED"
+        project.metrics = {
+            "image_width": width,
+            "image_height": height,
+            "aspect_ratio": round(width / max(height, 1), 3),
+            "file_size_kb": round(len(normalized_bytes) / 1024, 1),
+        }
         project.updated_at = datetime.utcnow()
 
         await db.commit()
         await db.refresh(project)
-        logger.info(f"File '{filename}' ({len(content)} bytes) uploaded for project {project_id}")
+        logger.info(f"File '{filename}' ({width}x{height}px) normalized and uploaded for project {project_id}")
         return project
 
     @staticmethod
@@ -112,10 +125,12 @@ class ProjectService:
         # Clean up associated files from storage
         for file_attr in [project.original_file_path, project.preprocessed_image_path, project.debug_mask_path]:
             if file_attr:
+                # Remove static prefix if present
+                clean_path = file_attr.replace("/static/data/", "")
                 try:
-                    await storage.delete_file(file_attr)
+                    await storage.delete_file(clean_path)
                 except Exception as e:
-                    logger.warning(f"Failed to delete file {file_attr}: {e}")
+                    logger.warning(f"Failed to delete file {clean_path}: {e}")
 
         await db.delete(project)
         await db.commit()

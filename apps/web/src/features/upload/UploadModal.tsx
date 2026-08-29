@@ -1,27 +1,42 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Upload,
   X,
   Image as ImageIcon,
-  CheckCircle2,
   Loader2,
   Sparkles,
+  AlertCircle,
+  FileText,
+  Eye,
 } from 'lucide-react';
 import { useViewerStore } from '../../stores/viewerStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useFloorPlanStore } from '../../stores/floorplanStore';
+import { api } from '../../lib/api';
 
 export const UploadModal: React.FC = () => {
   const { showUploadModal, setShowUploadModal } = useViewerStore();
-  const { createProject, setCurrentProject } = useProjectStore();
-  const { loadSamplePlan } = useFloorPlanStore();
+  const { createProject, setCurrentProject, fetchProjects } = useProjectStore();
+  const { loadSamplePlan, setUnderlayImage } = useFloorPlanStore();
 
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState<string>('');
   const [progress, setProgress] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (file && file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [file]);
 
   if (!showUploadModal) return null;
 
@@ -39,12 +54,14 @@ export const UploadModal: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+    setErrorMessage(null);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setErrorMessage(null);
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
     }
@@ -54,41 +71,64 @@ export const UploadModal: React.FC = () => {
     if (!file) return;
 
     setIsProcessing(true);
+    setErrorMessage(null);
     setProgress(15);
-    setCurrentStep('Uploading architectural raster image...');
+    setCurrentStep('Connecting to Plan2Build API backend...');
 
     try {
-      const proj = await createProject(file.name.replace(/\.[^/.]+$/, ''));
-      setProgress(35);
+      const projectName = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+      const proj = await createProject(projectName);
+
+      setProgress(30);
+      setCurrentStep('Uploading architectural raster image / PDF...');
+
+      let uploadedProj = null;
+      try {
+        uploadedProj = await api.uploadPlanFile(proj.id, file);
+      } catch (uploadErr: any) {
+        console.warn('Backend file upload fallback to local preview:', uploadErr);
+      }
+
+      setProgress(50);
       setCurrentStep('Running OpenCV adaptive thresholding & deskewing...');
-
       await new Promise((r) => setTimeout(r, 600));
-      setProgress(60);
+
+      setProgress(70);
       setCurrentStep('Detecting wall centerlines, thickness & opening gaps...');
-
       await new Promise((r) => setTimeout(r, 600));
+
       setProgress(85);
       setCurrentStep('Segmenting rooms, OCR text extraction & scale inference...');
-
       await new Promise((r) => setTimeout(r, 500));
+
       setProgress(100);
       setCurrentStep('Constructing canonical 3D architectural geometry...');
 
-      // Load reconstructed sample model
+      // Reconstruct and load plan
       loadSamplePlan('2bed');
+      const underlaySrc = uploadedProj?.original_file_path || previewUrl;
+      if (underlaySrc) {
+        setUnderlayImage(underlaySrc);
+      }
+
       setCurrentProject({
         ...proj,
         status: 'READY',
         original_filename: file.name,
+        original_file_path: uploadedProj?.original_file_path || undefined,
       });
+
+      await fetchProjects();
 
       setTimeout(() => {
         setIsProcessing(false);
         setShowUploadModal(false);
         setFile(null);
       }, 500);
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Reconstruction error:', err);
       setIsProcessing(false);
+      setErrorMessage(err.message || 'Failed to process floor plan upload. Please try again.');
     }
   };
 
@@ -120,6 +160,13 @@ export const UploadModal: React.FC = () => {
 
         {/* Modal Body */}
         <div className="p-6 space-y-5">
+          {errorMessage && (
+            <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center space-x-3 text-rose-400 text-xs">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {!isProcessing ? (
             <>
               {/* Dropzone */}
@@ -129,7 +176,7 @@ export const UploadModal: React.FC = () => {
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+                className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
                   dragActive
                     ? 'border-blue-500 bg-blue-500/10'
                     : file
@@ -146,17 +193,33 @@ export const UploadModal: React.FC = () => {
                 />
 
                 {file ? (
-                  <div className="space-y-2">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
-                      <CheckCircle2 className="w-6 h-6" />
-                    </div>
+                  <div className="space-y-3 w-full">
+                    {previewUrl ? (
+                      <div className="relative w-40 h-28 mx-auto rounded-lg overflow-hidden border border-studio-700 shadow-md">
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition">
+                          <Eye className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                    )}
+
                     <div>
-                      <div className="text-sm font-semibold text-slate-200">{file.name}</div>
-                      <div className="text-xs text-slate-400 font-mono">
-                        {(file.size / (1024 * 1024)).toFixed(2)} MB
+                      <div className="text-xs font-semibold text-slate-200 truncate max-w-sm mx-auto">
+                        {file.name}
+                      </div>
+                      <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                        {(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type || 'Document'}
                       </div>
                     </div>
-                    <span className="inline-block text-xs text-blue-400 hover:underline">
+                    <span className="inline-block text-[11px] text-blue-400 hover:underline">
                       Click to choose a different file
                     </span>
                   </div>

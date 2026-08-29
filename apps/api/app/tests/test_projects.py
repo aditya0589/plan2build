@@ -1,4 +1,6 @@
+import io
 import pytest
+from PIL import Image
 from httpx import AsyncClient
 
 @pytest.mark.asyncio
@@ -19,8 +21,12 @@ async def test_project_lifecycle_and_upload(client: AsyncClient):
     assert retrieved["id"] == project_id
     assert retrieved["name"] == "Luxury Penthouse Plan"
 
-    # 3. Upload a mock floor plan file
-    dummy_file_content = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15c4"
+    # 3. Upload a mock floor plan file (real 100x100 PNG)
+    test_img = Image.new("RGB", (100, 100), color="white")
+    img_byte_arr = io.BytesIO()
+    test_img.save(img_byte_arr, format="PNG")
+    dummy_file_content = img_byte_arr.getvalue()
+
     files = {"file": ("penthouse_floorplan.png", dummy_file_content, "image/png")}
     upload_response = await client.post(f"/api/v1/projects/{project_id}/upload", files=files)
     assert upload_response.status_code == 200
@@ -29,6 +35,8 @@ async def test_project_lifecycle_and_upload(client: AsyncClient):
     assert uploaded_data["original_filename"] == "penthouse_floorplan.png"
     assert uploaded_data["file_size_bytes"] == len(dummy_file_content)
     assert uploaded_data["mime_type"] == "image/png"
+    assert uploaded_data["metrics"]["image_width"] == 100
+    assert uploaded_data["metrics"]["image_height"] == 100
 
     # 4. List projects with filter & search
     list_response = await client.get("/api/v1/projects/?status=UPLOADED&search=Penthouse")
