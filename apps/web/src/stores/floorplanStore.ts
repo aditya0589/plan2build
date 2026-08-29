@@ -70,7 +70,7 @@ interface FloorPlanState {
 }
 
 export const useFloorPlanStore = create<FloorPlanState>((set, get) => ({
-  plan: SAMPLE_STUDIO_PLAN,
+  plan: SAMPLE_2BED_PLAN,
   activeLevelId: 'level_0',
   activeTool: 'select',
   selection: { type: 'none', id: null },
