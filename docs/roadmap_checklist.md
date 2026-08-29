@@ -7,10 +7,10 @@ This document serves as the master tracking checklist and technical reference fo
 ## 📊 High-Level Milestone Progress
 
 - **Total Phases**: 47
-- **Completed**: 1
+- **Completed**: 2
 - **In Progress**: 0
-- **Remaining**: 46
-- **Current Milestone**: Phase 2 — Database and Project Model CRUD
+- **Remaining**: 45
+- **Current Milestone**: Phase 3 — File Upload & Multi-Format Ingestion
 
 ---
 
@@ -57,12 +57,14 @@ Whenever you open this workspace:
 ---
 
 ### Phase 2: Database and Project Model CRUD
-- [ ] **Status: PENDING**
+- [x] **Status: COMPLETED**
 - **Objectives**: Complete project model persistence, metadata indexing, project listing with previews, and delete cascades.
-- **Tasks**:
-  - Store project status lifecycle (`UPLOADED` ➔ `PREPROCESSING` ➔ `DETECTING` ➔ `SEGMENTING` ➔ `RECONSTRUCTING` ➔ `GENERATING_3D` ➔ `READY` / `FAILED`).
-  - Add backend tests for project pagination, updates, and cascading file deletion.
-  - Connect frontend project drawer to list, open, rename, and delete existing projects from database.
+- **Key Deliverables**:
+  - `apps/api/app/models/project.py`: Complete SQLAlchemy Project model with status indexing, timestamps, and file metadata (`file_size_bytes`, `mime_type`).
+  - `apps/api/app/schemas/project.py`: Strict `ProjectStatusType` enum literals, `ProjectListResponse` with total pagination count, and `ProjectUpdate`.
+  - `apps/api/app/services/project_service.py`: Project CRUD operations, name search filter, status filter, `handle_file_upload`, and cascade file cleanup.
+  - `apps/api/app/api/v1/endpoints/projects.py`: `POST /projects`, `GET /projects` (paginated + search/filter), `GET /projects/{id}`, `PATCH /projects/{id}`, `POST /projects/{id}/upload`, `DELETE /projects/{id}`, `GET /projects/{id}/status`.
+  - `apps/web/src/features/projects/ProjectsModal.tsx`: Project manager drawer to browse saved projects, search by name, view status badges, switch active project, and delete projects.
 
 ---
 

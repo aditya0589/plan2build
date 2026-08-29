@@ -9,13 +9,14 @@ import {
   Building2,
   Sun,
   Moon,
+  FolderOpen,
 } from 'lucide-react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useFloorPlanStore } from '../../stores/floorplanStore';
 import { useViewerStore } from '../../stores/viewerStore';
 
 export const Header: React.FC = () => {
-  const { currentProject, backendConnected } = useProjectStore();
+  const { currentProject, backendConnected, setShowProjectsDrawer } = useProjectStore();
   const { undo, redo, historyIndex, history, loadSamplePlan, plan } = useFloorPlanStore();
   const {
     viewMode,
@@ -51,8 +52,14 @@ export const Header: React.FC = () => {
 
         <div className="h-4 w-px bg-studio-700" />
 
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-slate-200 truncate max-w-xs">
+        {/* Project Selector Button */}
+        <button
+          onClick={() => setShowProjectsDrawer(true)}
+          className="flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-studio-800 hover:bg-studio-750 border border-studio-700 hover:border-slate-600 transition group"
+          title="Open Project Manager"
+        >
+          <FolderOpen className="w-4 h-4 text-slate-400 group-hover:text-blue-400" />
+          <span className="text-xs font-semibold text-slate-200 truncate max-w-xs group-hover:text-white">
             {currentProject?.name || 'Untitled Floor Plan'}
           </span>
           <span
@@ -65,9 +72,9 @@ export const Header: React.FC = () => {
             {currentProject?.status || 'CREATED'}
           </span>
           {backendConnected && (
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Backend connected" />
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Database Connected" />
           )}
-        </div>
+        </button>
       </div>
 
       {/* Viewport Modes */}

@@ -5,6 +5,7 @@ import { PropertiesPanel } from './components/layout/PropertiesPanel';
 import { StatusBar } from './components/layout/StatusBar';
 import { LayerManager } from './components/layout/LayerManager';
 import { UploadModal } from './features/upload/UploadModal';
+import { ProjectsModal } from './features/projects/ProjectsModal';
 import { ArchitectAssistantModal } from './features/ai/ArchitectAssistantModal';
 import { FloorPlan2D } from './features/floorplan/FloorPlan2D';
 import { Viewer3D } from './features/viewer/Viewer3D';
@@ -68,6 +69,7 @@ export const App: React.FC = () => {
 
       {/* Modals & Overlays */}
       <UploadModal />
+      <ProjectsModal />
       <ArchitectAssistantModal />
     </div>
   );
